@@ -1,0 +1,47 @@
+public static class ClaimsPrincipalExtensions
+{
+    public static int GetUserId(this ClaimsPrincipal user)
+    {
+        var value = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(value, out var id) 
+            ? id 
+            : throw new UnauthorizedAccessException("Invalid user ID");
+    }
+}
+
+
+app.UseExceptionHandler(exceptionApp =>
+{
+    exceptionApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsJsonAsync(new { error = "Internal Server Error" });
+    });
+});
+
+
+[ApiController]
+[Route(api/orders)]
+[Authorize]
+public class OrdersController : ControllerBase
+{
+    private readonly AppDbContext _db;
+    public OrdersController(AppDbContext db) => _db = db;
+
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyOrders()
+    {
+        var userId = User.GetUserId(); 
+        var orders = await _db.Orders.Where(o => o.UserId == userId).ToListAsync();
+        return Ok(orders);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateOrder(CreateOrderDto dto)
+    {
+        var order = new Order { UserId = User.GetUserId(), ProductId = dto.ProductId };
+        _db.Orders.Add(order);
+        await _db.SaveChangesAsync();
+        return Ok(order);
+    }
+}
