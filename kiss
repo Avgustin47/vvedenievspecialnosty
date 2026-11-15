@@ -1,0 +1,14 @@
+app.MapGet("/api/products/{id:int}", async (int id, AppDbContext db) =>
+{
+    var product = await db.Products
+        .Where(p => p.Id == id)
+        .Select(p => new ProductDto(p.Id, p.Name, p.Price))
+        .FirstOrDefaultAsync();
+
+    return product is not null 
+        ? Results.Ok(product) 
+        : Results.NotFound();
+});
+
+
+public record ProductDto(int Id, string Name, decimal Price);
